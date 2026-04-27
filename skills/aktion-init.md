@@ -361,6 +361,27 @@ CREATE VIRTUAL TABLE IF NOT EXISTS embeddings USING vec0(
 );
 ```
 
+**Post-creation verification (mandatory)**: After running the schema script, immediately verify all expected tables exist:
+
+```python
+expected = [
+    "goals", "state_entities", "state_relations", "state_assertions",
+    "actors", "keyholders", "directives", "performance_ledger",
+    "escalation_policy", "posture_log", "referral_tokens",
+    "collection_requirements", "intelligence_reports", "canonical_log",
+    "constitutional_proposals", "intelligence_sources", "io_campaigns",
+    "social_media_actor_profiles", "operational_phases", "system_config"
+]
+actual = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+missing = [t for t in expected if t not in actual]
+if missing:
+    raise RuntimeError(f"SCHEMA ERROR — missing tables: {missing}")
+```
+
+If any tables are missing, create them individually and retry before proceeding. Do not continue with an incomplete schema — `referral_tokens` missing will silently break π_g and onboarding.
+
+**Implementation pitfall**: Do NOT split schema creation across multiple scripts or calls. The entire schema (all 20 tables + indexes + embeddings virtual table) must be created in a single Python script executed via `terminal()`. Splitting across scripts risks silent omissions.
+
 Confirm schema creation to the user before proceeding.
 
 ---
@@ -625,6 +646,6 @@ Then tell the keyholder:
 >
 > 1. Configure Hermes crons — see `aktion-crons.md` for recommended cadences.
 > 2. Run `/aktion-π0` manually to kick off the first cycle, or wait for cron.
-> 3. Share the bot link to bring your first participants in: t.me/{handle}
+> 3. Share the bot link with people who can contribute — t.me/{bot_handle}
 >
 > You're live."

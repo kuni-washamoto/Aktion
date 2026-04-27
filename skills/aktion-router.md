@@ -276,4 +276,10 @@ KEYHOLDER:
 PARTICIPANT (non-keyholder):
   /start               → aktion-onboard (auto-registration, no conversation)
   anything else       → ignore silently
+
+KEYHOLDER sending /start <token>:
+  → Do NOT auto-enroll as actor. Reply: "You're already registered as a keyholder.
+    To also join as an actor and receive directives, reply YES to confirm."
+  → Only proceed with onboarding if they explicitly confirm.
+  → Prevents accidental dual-registration.
 ```
