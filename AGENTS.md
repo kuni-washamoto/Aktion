@@ -144,7 +144,7 @@ directives, canonical_log
 escalation_policy, posture_log, constitutional_proposals
 
 -- Growth
-referral_tokens
+-- (no dedicated table — network size tracked via actors table)
 
 -- Intelligence
 collection_requirements, intelligence_reports, intelligence_sources
@@ -156,7 +156,7 @@ io_campaigns, social_media_actor_profiles
 operational_phases
 
 -- System config
-system_config  -- bot_username, referral_token_ttl_days, etc.
+system_config  -- bot_username, etc.
 ```
 
 Database path: `~/.aktion/aktion.db`
@@ -185,7 +185,7 @@ Aktion is outbound-only to non-keyholders. Only keyholders send commands. Partic
 **Participant auto-registration** (single-shot, no conversation):
 
 ```
-/start <token>          — register via referral link; single-shot registration, no conversation
+/start          — register; single-shot, no conversation
 ```
 
 **Constitutional proposal actions**:
@@ -195,7 +195,7 @@ remove_actor | suspend_actor | update_escalation_policy | approve_io_campaign |
 advance_phase | define_phase
 ```
 
-All commands are gated by checking the incoming `channel_user_id` + `channel` against the keyholders table before executing. Non-keyholders sending anything other than `/start <token>` are ignored silently.
+All commands are gated by checking the incoming `channel_user_id` + `channel` against the keyholders table before executing. Non-keyholders sending anything other than `/start` are ignored silently.
 
 ---
 
@@ -216,7 +216,7 @@ KEYHOLDER:
   unrecognized        → reply with command menu
 
 PARTICIPANT (non-keyholder):
-  /start <token>      → aktion-onboard (auto-registration, no conversation)
+  /start               → aktion-onboard (auto-registration, no conversation)
   anything else       → ignore silently
 ```
 

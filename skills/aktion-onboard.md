@@ -1,8 +1,8 @@
 # Skill: aktion-onboard
 
-**Trigger**: An inbound `/start <token>` message from any platform, routed here by aktion-router.
+**Trigger**: An inbound `/start` message from any platform, routed here by aktion-router.
 
-**Purpose**: Auto-register a new participant via referral token. This is a single-shot operation — no conversation, no back-and-forth. Validate the token, create the participant record, send a welcome message with the first available task, issue a referral link. Done.
+**Purpose**: Auto-register a new participant. This is a single-shot operation — no conversation, no back-and-forth. Create the participant record, send a welcome message with the first available task. Done.
 
 Aktion is outbound-only. This skill does not conduct intake interviews. Capabilities are assigned by keyholder via constitutional proposal, or assessed by πₑ over time from task outcomes.
 
@@ -16,17 +16,18 @@ You are **πₐ**. Your register is brief and welcoming. The participant has jus
 
 ## Execution Sequence
 
-### 1. Validate Token
+### 1. Create Participant Record
 
-Look up token in `referral_tokens` table by `id = token`:
-- Check `status = active` and `expires_at` is null or in the future
-- If invalid or expired: reply "This referral link is no longer valid. Contact your referrer for a new one." — halt.
-- If valid: extract referrer's `actor_id` and `depth`
+Check if actor already exists for this `(channel, channel_user_id)`. If they do and `status = active`: reply "You're already registered." — halt.
 
----
+If `status = inactive` (previously deregistered): reactivate them:
+```sql
+UPDATE actors
+SET status = 'active', onboarding_status = 'complete'
+WHERE channel = '{channel}' AND channel_user_id = '{channel_user_id}'
+```
 
-### 2. Create Participant Record
-
+Otherwise, insert a new record:
 ```sql
 INSERT OR IGNORE INTO actors (
   id, channel, channel_user_id, channel_chat_id, channel_username,
@@ -46,34 +47,11 @@ INSERT OR IGNORE INTO performance_ledger (actor_id, directives_received, directi
 VALUES ('{actor_id}', 0, 0, 0.0)
 ```
 
-Update referral token recruits:
-```sql
-UPDATE referral_tokens
-SET recruits = json_insert(recruits, '$[#]', '{new_actor_id}')
-WHERE actor_id = '{referrer_actor_id}'
-```
-
 ---
 
-### 3. Issue Referral Deep Link for This Participant
+### 2. Send Welcome Message
 
-Generate a new referral token for this participant:
-```sql
-INSERT INTO referral_tokens (
-  id, actor_id, channel, channel_user_id, deep_link, depth, issued_at, status
-) VALUES (
-  '{uuid}', '{actor_id}', '{channel}', '{channel_user_id}',
-  '{deep_link}', {referrer_depth + 1}, '{now}', 'active'
-)
-```
-
-Construct `deep_link` from `system_config`:
-- `telegram`: `t.me/{bot_handle}?start={token_id}`
-- Other platforms: the token string — instruct them to DM the bot with `/start {token_id}`
-
----
-
-### 4. Send Welcome Message
+Read `channel_telegram_bot_handle` (or equivalent for the platform) from `system_config` to construct the bot link for sharing.
 
 Send via Hermes:
 
@@ -81,14 +59,14 @@ Send via Hermes:
 >
 > You'll receive tasks here when the network needs you. Just do the task — no app required.
 >
-> Want to bring someone else in? Share your referral link:
-> {deep_link}"
+> Want to bring someone in? Share the bot link:
+> t.me/{bot_handle}"
 
 One message. No further prompts.
 
 ---
 
-### 5. Log to Canonical Log
+### 3. Log to Canonical Log
 
 ```json
 {
@@ -96,9 +74,7 @@ One message. No further prompts.
   "payload": {
     "actor_id": "...",
     "channel": "...",
-    "channel_user_id": "...",
-    "referrer_actor_id": "...",
-    "depth": N
+    "channel_user_id": "..."
   },
   "agent": "🚪 πₐ",
   "timestamp": "ISO8601"
@@ -106,4 +82,4 @@ One message. No further prompts.
 ```
 
 Call `aktion-embed` with `source_type = actor_onboarding`, `source_id = actor_id`, text:
-`"Participant {actor_id} registered via referral. Channel: {channel}. Depth: {depth}."`
+`"Participant {actor_id} registered. Channel: {channel}."`

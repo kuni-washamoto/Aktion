@@ -2,9 +2,9 @@
 
 **Trigger**: Any inbound message delivered by Hermes from any platform. This is the default entry point for all gateway traffic.
 
-**Purpose**: Single dispatch layer for all inbound messages. Hermes normalizes platform-specific updates into a `MessageEvent` before this skill runs. Identifies the sender (keyholder or other), routes keyholder commands to the correct downstream skill, and auto-registers new participants via referral token. All other inbound traffic is ignored.
+**Purpose**: Single dispatch layer for all inbound messages. Hermes normalizes platform-specific updates into a `MessageEvent` before this skill runs. Identifies the sender (keyholder or other), routes keyholder commands to the correct downstream skill, and auto-registers new participants via `/start`. All other inbound traffic is ignored.
 
-Aktion is outbound-only to non-keyholders. The only exception is `/start <token>` — a single-shot auto-registration with no conversation.
+Aktion is outbound-only to non-keyholders. The only exception is `/start` — a single-shot auto-registration with no conversation.
 
 ---
 
@@ -75,7 +75,7 @@ Unrecognized keyholder commands: reply with the command menu:
 
 #### Non-Keyholder: /start only
 
-If message is `/start <token>`: route to `aktion-onboard.md` for single-shot auto-registration.
+If message is `/start`: route to `aktion-onboard.md` for single-shot auto-registration.
 
 All other messages from non-keyholders: **ignore silently**. Do not respond. Do not log (avoids a DOS vector from spam messages creating log entries).
 
@@ -209,7 +209,7 @@ Do not log unrouteable or unauthorized callback queries.
 | `/propose`, `/confirm`, `/proposals` | `aktion-propose` |
 | `/confirm_posture` | `aktion-confirm-posture` |
 | `/status`, `/posture`, `/alerts` | `aktion-status` |
-| `/start <token>` | `aktion-onboard` |
+|| `/start` | `aktion-onboard` |
 | `/aktion-<name>` | `aktion-<name>` (strip the `/aktion-` prefix to get the skill name) |
 
 **Invocation steps**:
@@ -274,6 +274,6 @@ KEYHOLDER:
   unrecognized        → reply with command menu
 
 PARTICIPANT (non-keyholder):
-  /start <token>      → aktion-onboard (auto-registration, no conversation)
+  /start               → aktion-onboard (auto-registration, no conversation)
   anything else       → ignore silently
 ```

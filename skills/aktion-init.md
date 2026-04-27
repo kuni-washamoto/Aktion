@@ -90,7 +90,6 @@ DROP TABLE IF EXISTS directives;
 DROP TABLE IF EXISTS performance_ledger;
 DROP TABLE IF EXISTS escalation_policy;
 DROP TABLE IF EXISTS posture_log;
-DROP TABLE IF EXISTS referral_tokens;
 DROP TABLE IF EXISTS collection_requirements;
 DROP TABLE IF EXISTS intelligence_reports;
 DROP TABLE IF EXISTS canonical_log;
@@ -233,19 +232,6 @@ CREATE TABLE IF NOT EXISTS posture_log (
   timestamp TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS referral_tokens (
-  id TEXT PRIMARY KEY,
-  actor_id TEXT NOT NULL,
-  channel TEXT NOT NULL,          -- platform the token was issued for
-  channel_user_id TEXT NOT NULL,
-  deep_link TEXT NOT NULL,        -- channel-native referral URL
-  recruits TEXT DEFAULT '[]', -- JSON array
-  depth INTEGER DEFAULT 0,
-  issued_at TEXT NOT NULL,
-  expires_at TEXT,
-  status TEXT DEFAULT 'active'
-);
-
 CREATE TABLE IF NOT EXISTS collection_requirements (
   id TEXT PRIMARY KEY,
   question TEXT NOT NULL,
@@ -350,7 +336,7 @@ CREATE TABLE IF NOT EXISTS system_config (
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
--- Stores bot_username, referral_token_ttl_days, and other init-time parameters
+-- Stores bot_username and other init-time parameters
 
 -- Indexes for frequent query patterns
 CREATE INDEX IF NOT EXISTS idx_canonical_log_event_type_timestamp ON canonical_log(event_type, timestamp DESC);
@@ -362,7 +348,6 @@ CREATE INDEX IF NOT EXISTS idx_state_assertions_timestamp ON state_assertions(ti
 CREATE INDEX IF NOT EXISTS idx_actors_status ON actors(status, onboarding_status);
 CREATE INDEX IF NOT EXISTS idx_actors_channel ON actors(channel, channel_user_id);
 CREATE INDEX IF NOT EXISTS idx_keyholders_channel ON keyholders(channel, channel_user_id);
-CREATE INDEX IF NOT EXISTS idx_referral_tokens_actor ON referral_tokens(actor_id, status);
 CREATE INDEX IF NOT EXISTS idx_collection_reqs_status ON collection_requirements(status, priority);
 CREATE INDEX IF NOT EXISTS idx_proposals_status ON constitutional_proposals(status);
 CREATE INDEX IF NOT EXISTS idx_operational_phases_status ON operational_phases(status, sequence);
@@ -413,6 +398,8 @@ Ask:
 > Reply **research** to let me dig in, or **manual** to enter it yourself."
 
 **If they choose research**:
+
+Use `delegate_task` to run parallel web research queries. **Delegation limit**: `max_concurrent_children` defaults to 3 — never spawn more than 3 subagents at once. If you need 4+ research queries, consolidate related topics (e.g. combine "media outlets" + "fuel pricing context" into one subagent task). Exceeding the limit throws an error and aborts all tasks.
 
 Use web search and your own knowledge to investigate the landscape relevant to the goal. Look for:
 - Key organizations active in this space (supporters, opponents, neutral parties)
@@ -528,22 +515,7 @@ A system shipped with no triggers cannot autonomously escalate — it will sit a
 
 ---
 
-## Step 5 — Referral Token TTL
-
-Ask:
-
-> "Should referral tokens expire? A TTL limits the window in which a referral link can be used after issuance. Options:
->
-> - Permanent (default) — links never expire
-> - 30 days — balances freshness with flexibility
-> - 7 days — high-security; forces frequent re-issuance
-> - Custom — specify days"
-
-Record the selected value in `system_config` with key `referral_token_ttl_days` (null for permanent, otherwise integer days). π_g and πₐ both read from this key.
-
----
-
-## Step 6 — Define Initial Operational Phase (Optional)
+## Step 5 — Define Initial Operational Phase (Optional)
 
 Ask:
 
@@ -572,7 +544,7 @@ Confirm each phase back to keyholders before moving on.
 
 ---
 
-## Step 7 — Threshold Confirmation
+## Step 6 — Threshold Confirmation
 
 Display a complete summary of all inputs:
 
@@ -588,8 +560,6 @@ ACTIVITY LEVELS:
   Levels:         [list]
   Triggers:       [count] configured
   Auto-ceiling:   level [N]
-
-REFERRAL LINK TTL: [permanent | N days]
 
 PHASES: [count] defined
   Phase 1 (active):  [name]
@@ -615,15 +585,15 @@ On anything else: do not commit. Ask what needs to change.
 
 ---
 
-## Step 8 — Handoff
+## Step 7 — Handoff
 
 After committing, ask:
 
 > "Which channel is this system running on, and what is the bot username or handle?
 >
-> - **Telegram** — the bot username from BotFather (without the @). Actors get a deep link: `t.me/<bot>?start=<token>`
-> - **Discord** — the bot's application ID. Actors get a token they paste into a DM with the bot.
-> - **Slack** — the bot's handle (without the @). Actors get a token they paste into a DM with the bot.
+> - **Telegram** — the bot username from BotFather (without the @). New participants join via `t.me/<bot>` — they send `/start` and are auto-registered.
+> - **Discord** — the bot's application ID. Participants DM the bot and type `/start`.
+> - **Slack** — the bot's handle (without the @). Participants DM the bot and type `/start`.
 >
 > If you're running on multiple channels, list each."
 
@@ -636,7 +606,7 @@ INSERT INTO system_config (key, value, updated_at)
 VALUES ('channel_{channel}_bot_handle', '{handle}', '{now}')
 ```
 
-2. Referral deep links are constructed at runtime by π_g and πₐ using the channel and handle from `system_config`. No static placeholder substitution needed.
+2. The bot link (e.g. `t.me/{handle}`) is what participants use to join. Share it directly — no tokens needed.
 
 Confirm:
 
@@ -644,7 +614,7 @@ Confirm:
 Channel config saved:
   {channel}: {handle}
   ...
-Referral links will be constructed per-channel at issuance time.
+Bot join link: t.me/{handle}  (Telegram)
 ```
 
 Then tell the keyholder:
@@ -655,8 +625,6 @@ Then tell the keyholder:
 >
 > 1. Configure Hermes crons — see `aktion-crons.md` for recommended cadences.
 > 2. Run `/aktion-π0` manually to kick off the first cycle, or wait for cron.
-> 3. Share your referral links to bring your first participants in.
+> 3. Share the bot link to bring your first participants in: t.me/{handle}
 >
 > You're live."
-
-Trigger `aktion-growth.md` to issue founding referral links to all keyholders (since keyholders are the root referrers — depth 0).

@@ -27,7 +27,7 @@ Factual and structured. This is a reference document. When invoked by a keyholde
 | `aktion-influence` | every 1 h | IO campaigns operate on platform timescales (minutes-to-hours); hourly is sufficient |
 | `aktion-threat` | every 4 h | Adversarial assessment is stable; run before major directive launches via manual trigger |
 | `aktion-eval` | every 2 h | Independent evaluation — offset from π₀ cycle so πₑ evaluates post-cycle state |
-| `aktion-growth` | every 1 h | Referral topology updates slowly; hourly captures new registrations without overhead |
+| `aktion-growth` | every 1 h | Track network size and capability gaps; flag gaps to πᶜ for recruitment messaging |
 | `aktion-propose` | event-driven only | Runs on `/propose` or `/confirm` — no cron needed except expiry sweep |
 | `aktion-propose` expiry sweep | every 1 h | Expires proposals past 72h TTL |
 | `aktion-confirm-posture` expiry sweep | every 1 h | Expires pending non-auto transitions past 24h TTL |
