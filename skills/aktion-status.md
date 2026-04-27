@@ -57,6 +57,18 @@ PROPOSALS
   {If any: list action types and confirmation counts}
 ```
 
+**Telegram navigation (channel = Telegram only)**
+Load `aktion-tg-keyboard` for the `send_tg_keyboard_message` helper.
+Attach an inline keyboard row beneath the status message:
+
+| Button | Callback data |
+|---|---|
+| 📋 Proposals | `aktion:proposals` |
+| ⚡ Posture | `aktion:posture` |
+| 🚨 Alerts | `aktion:alerts` |
+
+Note: `aktion:proposals` routes to the aktion-propose skill (list flow) — see Callback Routing below.
+
 ---
 
 ### `/posture` — Escalation Posture Detail
@@ -82,6 +94,14 @@ Triggers currently active:
   {signal_type}: {condition} — target level: {N}
   {If none: NONE}
 ```
+
+**Telegram navigation (channel = Telegram only)**
+Attach an inline keyboard row beneath the posture message:
+
+| Button | Callback data |
+|---|---|
+| 📊 Status | `aktion:status` |
+| 🚨 Alerts | `aktion:alerts` |
 
 ---
 
@@ -118,6 +138,14 @@ NEEDS YOUR ATTENTION
   {If none: NONE}
 ```
 
+**Telegram navigation (channel = Telegram only)**
+Attach an inline keyboard row beneath the alerts message:
+
+| Button | Callback data |
+|---|---|
+| 📊 Status | `aktion:status` |
+| ⚡ Posture | `aktion:posture` |
+
 ---
 
 ### Log the Query
@@ -132,3 +160,16 @@ Append minimal entry to canonical log:
   "timestamp": "ISO8601"
 }
 ```
+
+---
+
+## Callback Routing
+
+When this skill emits inline keyboard buttons on Telegram, the following callback_data values may be dispatched back through the router:
+
+| Callback data | Destination skill | Notes |
+|---|---|---|
+| `aktion:status` | aktion-status (`/status` handler) | Re-runs full snapshot |
+| `aktion:posture` | aktion-status (`/posture` handler) | Re-runs posture detail |
+| `aktion:alerts` | aktion-status (`/alerts` handler) | Re-runs alerts view |
+| `aktion:proposals` | aktion-propose (list flow) | Routes to aktion-propose skill; displays pending proposals list |

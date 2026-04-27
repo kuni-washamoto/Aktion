@@ -91,6 +91,9 @@ VALUES (uuid(), '{action}', '{payload_json}', '{channel_user_id}', '{channel}', 
 ```
 
 **Notify all keyholders** via Hermes:
+
+Load aktion-tg-keyboard for the send_tg_keyboard_message helper. On Telegram, use it to send with inline_keyboard. On other channels, send plain text.
+
 ```
 [PROPOSAL {proposal_id}]
 Action: {action}
@@ -101,6 +104,11 @@ Confirmations: {0 for agent-originated | 1 for keyholder-originated}/{threshold}
 To confirm: /confirm {proposal_id}
 Expires: {now + 72h}
 ```
+
+On Telegram, after sending the text above, call send_tg_keyboard_message with an inline keyboard:
+- Row 1: button [✅ Confirm] with callback_data = 'aktion:confirm:{proposal_id}'
+
+Note on agent-originated proposals: agents cannot confirm, so there is no auto-confirm shortcut — the single [✅ Confirm] button is still shown so keyholders can tap to confirm directly.
 
 Auto-add proposer as first confirmation **only for keyholder-originated proposals**. Agent-originated proposals start at 0 confirmations.
 
@@ -130,12 +138,18 @@ If `COUNT(confirmations ∩ K)` ≥ T[action]:
 
 Else:
   → Notify all keyholders:
+
+  Load aktion-tg-keyboard for the send_tg_keyboard_message helper. On Telegram, use it to send with inline_keyboard. On other channels, send plain text.
+
   ```
   [PROPOSAL {proposal_id}] confirmation received.
   Action: {action}
   Confirmations: {N}/{threshold}
   Outstanding: {remaining keyholder labels or IDs}
   ```
+
+  On Telegram, after sending the text above, call send_tg_keyboard_message with an inline keyboard:
+  - Row 1: button [✅ Confirm] with callback_data = 'aktion:confirm:{proposal_id}'
 
 ---
 
@@ -185,12 +199,18 @@ After commit:
 Call `aktion-embed` with `source_type = canonical_log`, the new log entry's id, and the constitutional update text.
 
 Notify all keyholders:
+
+Load aktion-tg-keyboard for the send_tg_keyboard_message helper. On Telegram, use it to send with inline_keyboard. On other channels, send plain text.
+
 ```
 [PROPOSAL {proposal_id}] COMMITTED
 Action: {action}
 Confirmed by: {labels}
 Change applied.
+No further action required.
 ```
+
+On Telegram, send this message as plain text only — no inline keyboard (the proposal is committed; there is nothing left for keyholders to action).
 
 ---
 

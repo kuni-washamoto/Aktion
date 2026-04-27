@@ -81,6 +81,125 @@ All other messages from non-keyholders: **ignore silently**. Do not respond. Do 
 
 ---
 
+## Callback Query Handling
+
+Hermes can deliver `callback_query` events — these originate from Telegram inline keyboard button presses. They arrive as a normalized event alongside regular `MessageEvent` traffic.
+
+### Detecting a Callback Query
+
+Detect a callback query event by checking:
+
+```
+event.type == 'callback_query'
+```
+
+or equivalently, if Hermes does not normalize the `type` field in all cases:
+
+```
+event.callback_data != null
+```
+
+Use `event.callback_data` as the canonical field name for the payload string attached to the button. Do not use `event.text` for callback queries — it will be absent or null.
+
+### Parsing callback_data
+
+All Aktion-issued inline buttons encode their payload using the pattern:
+
+```
+aktion:<command>:<args>
+```
+
+Split on `:` — index 0 is always the literal string `aktion`, index 1 is the command, index 2 onward (joined back with `:` if needed) are the args.
+
+Example: `aktion:confirm:prop_0042` → command=`confirm`, args=`prop_0042`
+
+Discard callback_data that does not begin with `aktion:` — treat it as unrouteable and answer the callback query with a silent acknowledgement to dismiss the spinner (see below).
+
+### Callback Route Table
+
+| callback_data pattern | Route to | Treatment |
+|---|---|---|
+| `aktion:confirm:<proposal_id>` | `aktion-propose` — confirm flow | Treat as if the keyholder sent `/confirm <proposal_id>` |
+| `aktion:confirm_posture:<level>` | `aktion-confirm-posture` | Treat as if the keyholder sent `/confirm_posture <level>` |
+| `aktion:status` | `aktion-status` — full snapshot | Equivalent to `/status` |
+| `aktion:posture` | `aktion-status` — posture detail | Equivalent to `/posture` |
+| `aktion:alerts` | `aktion-status` — alerts view | Equivalent to `/alerts` |
+
+Unrecognized `aktion:*` patterns: answer the callback query silently (no message). Do not route.
+
+### Keyholder Verification
+
+Before routing any callback query, verify that the sender is a registered keyholder using the exact same check as for text commands:
+
+- Extract `channel` from `event.source.platform`
+- Extract `channel_user_id` from `event.source.user_id`
+- Query the `keyholders` table for `(channel, channel_user_id)`
+
+If the sender is **not** a keyholder: answer the callback query silently to dismiss the Telegram spinner, then stop. Do not route. Do not log.
+
+If the sender **is** a keyholder: proceed to routing.
+
+### Answering the Callback Query
+
+After the downstream skill has executed (or immediately on an unrouteable / unauthorized callback), call `answerCallbackQuery` via the Telegram Bot API to dismiss the loading spinner on the sender's device:
+
+```
+POST /bot{token}/answerCallbackQuery
+{
+  "callback_query_id": "<event.callback_query_id>",
+  "text": null   // leave empty for silent dismissal; downstream skill handles any reply message
+}
+```
+
+This must always be called — Telegram will show a spinning indicator to the user until it is answered or times out (30 s). Do not skip it even on error paths.
+
+### Dispatch Context for Callback Queries
+
+Assemble the dispatch context the same way as for text commands, substituting the parsed callback fields:
+
+```json
+{
+  "channel": "telegram",
+  "channel_user_id": "...",
+  "channel_chat_id": "...",
+  "channel_username": "...",
+  "sender_type": "keyholder",
+  "command": "/confirm",
+  "args": ["prop_0042"],
+  "raw_callback_data": "aktion:confirm:prop_0042",
+  "callback_query_id": "...",
+  "timestamp": "ISO8601"
+}
+```
+
+The downstream skill receives this context and runs identically to a text-command invocation.
+
+### Logging
+
+Log all routed callback queries to the canonical log regardless of which downstream skill was invoked (unlike text routing which skips status queries):
+
+```json
+{
+  "event_type": "callback_query_routed",
+  "payload": {
+    "channel": "telegram",
+    "channel_user_id": "...",
+    "sender_type": "keyholder",
+    "callback_data": "aktion:confirm:prop_0042",
+    "command": "confirm",
+    "args": ["prop_0042"],
+    "routed_to": "aktion-propose",
+    "callback_query_id": "..."
+  },
+  "agent": "🔀 router",
+  "timestamp": "ISO8601"
+}
+```
+
+Do not log unrouteable or unauthorized callback queries.
+
+---
+
 ### 5. Invoke Downstream Skill
 
 **Skill name lookup** — use these exact names with `skill_view`:

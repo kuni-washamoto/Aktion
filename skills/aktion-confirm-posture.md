@@ -70,6 +70,8 @@ If `COUNT(valid confirmations) >= T[escalation_policy_update]`:
   → Commit transition (Step 4)
 
 Else:
+  → Load aktion-tg-keyboard for the send_tg_keyboard_message helper. On Telegram, use it with inline_keyboard. On other channels, plain text.
+
   → Notify all keyholders:
 
 ```
@@ -79,6 +81,13 @@ Confirmations: {N}/{threshold}
 Outstanding: {remaining keyholder labels}
 
 To confirm: /confirm_posture {level}
+```
+
+On Telegram, attach an inline keyboard to each keyholder notification:
+
+```
+inline_keyboard:
+  - row 1: [✅ Approve L{level}]  callback_data: "aktion:confirm_posture:{level}"
 ```
 
 ---
@@ -121,7 +130,9 @@ Append to canonical log:
 
 Call `aktion-embed` with `source_type = posture_transition`, `source_id` = the posture_log row id, and text: `"Posture transition L{from_level} → L{to_level}. Trigger: {trigger_signal}. Authority: keyholder_confirmed."`
 
-Notify all keyholders:
+Load aktion-tg-keyboard for the send_tg_keyboard_message helper. On Telegram, use it with inline_keyboard. On other channels, plain text.
+
+Notify all keyholders (send with NO inline keyboard buttons):
 
 ```
 [POSTURE TRANSITION COMMITTED] L{from} → L{to}
@@ -130,6 +141,8 @@ Operational parameters now in effect:
   Tempo: ×{multiplier}
   Capability floor: {standard|elevated}
   Max parallel directives: {N|unlimited}
+
+No further action required.
 ```
 
 π₀ will pick up the new posture level on its next strategic cycle and scale operations accordingly.
